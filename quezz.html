@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JavaScript Quiz - Debug Friendly</title>
+<style>
+  body { font-family: sans-serif; background:#f1f1f1; text-align:center; padding:20px; }
+  .question-box{ background:#fff; padding:20px; margin:20px auto; border-radius:10px; width:480px; box-shadow:0 0 10px rgba(0,0,0,0.1); text-align:left; }
+  #timer{ font-size:18px; font-weight:bold; color:red; margin-bottom:20px; }
+  .card{ background:#fff; border-radius:10px; padding:15px; margin:15px auto; width:480px; box-shadow:0 0 12px rgba(0,0,0,0.1); text-align:left; }
+  .correct{ color:green; font-weight:bold; }
+  .incorrect{ color:red; font-weight:bold; }
+  button{ margin-top:15px; padding:10px 15px; background:#4CAF50; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+  button:hover{ background:#45a049; }
+  label{ display:block; margin:6px 0; }
+</style>
+</head>
+<body>
+
+<h1>JavaScript Quiz (Debug)</h1>
+<p id="timer">Time Left: 120s</p>
+<div id="quiz"></div>
+<div id="result"></div>
+
+<script>
+/* ---------- Safety: global error logging ---------- */
+window.addEventListener('error', (ev) => {
+  console.error('Window error:', ev.error || ev.message);
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  console.error('Unhandled promise rejection:', ev.reason);
+});
+
+/* ---------- Quiz data ---------- */
+const quizData = [
+  { question: "Which company developed JavaScript?", options: ["Microsoft","Netscape","Google","Oracle"], answer: "Netscape" },
+  { question: "Which keyword is used to declare a variable in ES6?", options: ["var","let","const","both let and const"], answer: "both let and const" },
+  { question: "What is the output of: typeof null?", options: ["null","undefined","object","number"], answer: "object" },
+  { question: "Which symbol is used for single-line comments in JavaScript?", options: ["//","/*","#","<!--"], answer: "//" },
+  { question: "What does DOM stand for?", options: ["Document Object Model","Data Object Method","Document Oriented Memory","Desktop Object Manager"], answer: "Document Object Model" },
+  { question: "Which method converts JSON to a JavaScript object?", options: ["JSON.parse()","JSON.stringify()","JSON.convert()","JSON.toObject()"], answer: "JSON.parse()" },
+  { question: "Which operator is used for strict equality?", options: ["=","==","===","!="], answer: "===" },
+  { question: "What will '2' + 2 return?", options: ["4","22","NaN","Error"], answer: "22" },
+  { question: "Which function is used to print messages in the console?", options: ["alert()","print()","console.log()","document.write()"], answer: "console.log()" },
+  { question: "Which method adds an element at the end of an array?", options: ["push()","pop()","shift()","unshift()"], answer: "push()" }
+];
+
+let currentQuestion = 0;
+let score = 0;
+let userAnswers = [];
+let totalTime = 120;
+let timerInterval;
+
+const quizContainer = document.getElementById('quiz');
+const timerDisplay = document.getElementById('timer');
+const resultDisplay = document.getElementById('result');
+
+/* ---------- Render one question (DOM API — no innerHTML build-up) ---------- */
+function showQuestion() {
+  try {
+    console.log('showQuestion -> currentQuestion:', currentQuestion);
+    quizContainer.innerHTML = ''; // clear
+
+    if (currentQuestion >= quizData.length) {
+      finishQuiz();
+      return;
+    }
+
+    const q = quizData[currentQuestion];
+
+    const box = document.createElement('div');
+    box.className = 'question-box';
+
+    const p = document.createElement('p');
+    p.innerHTML = `<b>Q${currentQuestion+1}:</b> ${q.question}`;
+    box.appendChild(p);
+
+    // options
+    q.options.forEach((opt, idx) => {
+      const lbl = document.createElement('label');
+      lbl.setAttribute('data-opt-index', idx);
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'option';
+      radio.value = opt;
+      radio.id = `q${currentQuestion}_opt${idx}`;
+
+      lbl.appendChild(radio);
+      lbl.appendChild(document.createTextNode(' ' + opt));
+
+      box.appendChild(lbl);
+    });
+
+    // submit button
+    const btn = document.createElement('button');
+    btn.id = 'submitBtn';
+    btn.textContent = 'Submit';
+    btn.addEventListener('click', submitAnswer);
+    box.appendChild(document.createElement('br')); // spacing
+    box.appendChild(btn);
+
+    quizContainer.appendChild(box);
+
+    // debug: ensure button exists
+    const exists = document.getElementById('submitBtn') ? 'found' : 'missing';
+    console.log('Submit button:', exists);
+  } catch (err) {
+    console.error('showQuestion error:', err);
+    alert('An error occurred in showQuestion — see console.');
+  }
+}
+
+/* ---------- Submit handler ---------- */
+function submitAnswer() {
+  try {
+    const sel = document.querySelector('input[name="option"]:checked');
+    const userAns = sel ? sel.value : 'No Answer';
+    console.log('submitAnswer -> userAns:', userAns);
+
+    userAnswers.push(userAns);
+
+    if (userAns === quizData[currentQuestion].answer) {
+      score++;
+    }
+
+    currentQuestion++;
+    showQuestion();
+  } catch (err) {
+    console.error('submitAnswer error:', err);
+    alert('An error occurred in submitAnswer — see console.');
+  }
+}
+
+/* ---------- Timer ---------- */
+function startTimer() {
+  try {
+    timerDisplay.textContent = `Time Left: ${totalTime}s`;
+    timerInterval = setInterval(() => {
+      totalTime--;
+      timerDisplay.textContent = `Time Left: ${totalTime}s`;
+      if (totalTime <= 0) {
+        clearInterval(timerInterval);
+        finishQuiz();
+      }
+    }, 1000);
+  } catch (err) {
+    console.error('startTimer error:', err);
+  }
+}
+
+/* ---------- Finish (results) ---------- */
+function finishQuiz() {
+  try {
+    clearInterval(timerInterval);
+    quizContainer.innerHTML = '';
+    timerDisplay.textContent = '';
+
+    let resultHTML = `<h2>✅ Quiz Finished!</h2><p>Your Score: ${score} / ${quizData.length}</p>`;
+    // build cards via DOM for clarity
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = resultHTML;
+
+    quizData.forEach((q, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const title = document.createElement('p');
+      title.innerHTML = `<b>Q${i+1}:</b> ${q.question}`;
+      card.appendChild(title);
+
+      q.options.forEach((opt) => {
+        const lbl = document.createElement('label');
+        lbl.style.display = 'block';
+        // style according to correctness/user choice
+        if (opt === q.answer) lbl.className = 'correct';
+        if (userAnswers[i] === opt && userAnswers[i] !== q.answer) lbl.className = 'incorrect';
+
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.disabled = true;
+        if (userAnswers[i] === opt) radio.checked = true;
+
+        lbl.appendChild(radio);
+        lbl.appendChild(document.createTextNode(' ' + opt));
+        card.appendChild(lbl);
+      });
+
+      wrapper.appendChild(card);
+    });
+
+    resultDisplay.innerHTML = '';
+    resultDisplay.appendChild(wrapper);
+    console.log('finishQuiz -> userAnswers:', userAnswers, 'score:', score);
+  } catch (err) {
+    console.error('finishQuiz error:', err);
+    alert('An error occurred in finishQuiz — see console.');
+  }
+}
+
+/* ---------- Start ---------- */
+showQuestion();
+startTimer();
+</script>
+
+</body>
+</html>
